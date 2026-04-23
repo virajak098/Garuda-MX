@@ -1,0 +1,38 @@
+{
+  "summary": "Frontend-only fix-iteration verification for Garuda MX: all 6 requested fixes verified working end-to-end via Playwright on the public preview URL.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Editor topbar", "issues": ["Topbar brand images are rendered inside a <div>, not a <header> tag. Not a bug (visually correct in screenshot: phoenix logo + 'MX' text-logo shown beside project name), but wrapping them in a semantic <header> would improve a11y/landmarks."]}
+    ]
+  },
+  "verified_features": [
+    "Landing: /brand/logo.jpg, /brand/text-logo.jpg, /brand/banner.png all load (naturalWidth 4096). data-testid=landing-page and nav-home-link present.",
+    "Editor: data-testid=editor-home-link present; topbar shows logo + MX wordmark + project name (visually confirmed).",
+    "Image upload via hidden input[type=file] works; project name reflects filename.",
+    "Crop tool: ALL 8 handles present (crop-handle-nw/n/ne/e/se/s/sw/w). Dragging NW handle resized the overlay from 80x80 -> 27x27 px, proving interactive resize works.",
+    "CropPanel: crop-format-png / crop-format-jpg / crop-format-webp all present. Selecting jpg reveals crop-quality-slider with min=10 max=100 as required.",
+    "Zoom: zoom-slider has min=10 max=400. Two clicks on zoom-in-button moved value 100 -> 120 (confirms 10% increment).",
+    "BlurPanel: blur-tab-standard, blur-tab-background, blur-tab-manual all present. Manual tab exposes slider-brush-blur-size, slider-brush-blur-strength, manual-blur-apply, manual-blur-clear.",
+    "Layers: add-image-layer-button present. Base image is locked at bottom (message shown: 'Base image is locked at bottom.') -- toggle/delete testids appear only for user-added overlay layers, not the base, which matches spec.",
+    "Export: export-button clickable, no console errors on click (File System Access API path / fallback doesn't throw)."
+  ],
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "CropOverlay 8-handle logic is correct and pointerEvents is set so handles reliably receive drag events. Good use of data-testid on every handle.",
+    "BlurPanel's manual tab correctly toggles brushBlurMode via setBrushBlurMode when switching tabs. hasBrushBlur disables Apply/Clear until a stroke is painted -- good UX.",
+    "CropPanel hides quality slider when cropFormat === 'png' (lossless) -- matches spec.",
+    "Minor: Editor.jsx exposes 5 brand images on the landing (logo twice + text-logo twice + banner) -- likely due to hero + showcase duplication. Consider using srcSet or reusing a single <img> to reduce payload, but not a bug.",
+    "Consider wrapping editor topbar in a semantic <header> element for a11y parity with <main>."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not in scope)", "frontend": "100%"},
+  "test_credentials": "N/A",
+  "seed_data_creation": "In-memory 100x100 PNG written to /tmp/ti.png for upload test",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All six fix items verified via Playwright on preview URL. Tool buttons use suffix '-button' (e.g. tool-crop-button, tool-blur-button, tool-layers-button). Base image layer is locked and does not render layer-toggle/-delete testids; these only appear once user adds overlay layers via add-image-layer-button. AI endpoints (bg blur, enhance, face, erase, ai) were intentionally NOT tested per request (need Gemini key)."
+}
