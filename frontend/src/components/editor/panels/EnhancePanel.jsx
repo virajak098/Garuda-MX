@@ -30,10 +30,10 @@ export default function EnhancePanel({ onEnhance, onMagicEnhance, loading, magic
 
       <div className="pt-3 border-t border-garuda-border">
         <div className="text-[10px] uppercase tracking-[0.2em] font-semibold text-garuda-textSecondary mb-2 font-mono flex items-center gap-1.5">
-          <Sparkles className="w-3 h-3 text-garuda-gold" /> AI Garuda MX · Deep Enhance
+          <Sparkles className="w-3 h-3 text-garuda-gold" /> Garuda MX · Pro Enhancements
         </div>
         <p className="text-[11px] text-garuda-textSecondary leading-relaxed mb-3">
-          Pick a target. Each takes 15–40s (AI call).
+          Pick a target. All run instantly on your device — no upload, no waiting.
         </p>
         <div className="space-y-2">
           {AI_OPTIONS.map((o) => (

@@ -338,22 +338,230 @@ export async function magicEnhance(imageSrc) {
   ctx.putImageData(imgData, 0, 0);
 
   // --- 3. Unsharp mask: blurred copy, then original*amount - blurred*(amount-1) ---
-  const blurred = document.createElement("canvas");
-  blurred.width = w; blurred.height = h;
-  const bCtx = blurred.getContext("2d");
-  bCtx.filter = "blur(2px)";
-  bCtx.drawImage(c, 0, 0);
+  return _unsharpMask(c, 2, 0.6);
+}
 
-  const blurredData = bCtx.getImageData(0, 0, w, h).data;
-  const sharpenAmount = 0.6;
-  const out = ctx.getImageData(0, 0, w, h);
-  const sd = out.data;
-  for (let i = 0; i < sd.length; i += 4) {
-    sd[i]     = Math.max(0, Math.min(255, sd[i]     + (sd[i]     - blurredData[i])     * sharpenAmount));
-    sd[i + 1] = Math.max(0, Math.min(255, sd[i + 1] + (sd[i + 1] - blurredData[i + 1]) * sharpenAmount));
-    sd[i + 2] = Math.max(0, Math.min(255, sd[i + 2] + (sd[i + 2] - blurredData[i + 2]) * sharpenAmount));
+// ===========================================================================
+// Client-side Enhance Suite — runs entirely in the browser, no API key needed
+// ===========================================================================
+
+function _clamp(v) { return Math.max(0, Math.min(255, Math.round(v))); }
+
+function _canvasFromImage(img, scaleW = null, scaleH = null) {
+  const w = scaleW || img.width;
+  const h = scaleH || img.height;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(img, 0, 0, w, h);
+  return { c, ctx };
+}
+
+function _applyPixelOp(ctx, w, h, fn) {
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const d = imgData.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const out = fn(d[i], d[i + 1], d[i + 2]);
+    d[i] = out[0]; d[i + 1] = out[1]; d[i + 2] = out[2];
   }
-  ctx.putImageData(out, 0, 0);
+  ctx.putImageData(imgData, 0, 0);
+}
 
+// Unsharp mask on an existing canvas — returns PNG dataURL and mutates canvas
+function _unsharpMask(c, radius = 2, amount = 0.6) {
+  const w = c.width, h = c.height;
+  const blur = document.createElement("canvas");
+  blur.width = w; blur.height = h;
+  const bCtx = blur.getContext("2d");
+  bCtx.filter = `blur(${radius}px)`;
+  bCtx.drawImage(c, 0, 0);
+  const ctx = c.getContext("2d");
+  const src = ctx.getImageData(0, 0, w, h);
+  const blr = bCtx.getImageData(0, 0, w, h).data;
+  const d = src.data;
+  for (let i = 0; i < d.length; i += 4) {
+    d[i]     = _clamp(d[i]     + (d[i]     - blr[i])     * amount);
+    d[i + 1] = _clamp(d[i + 1] + (d[i + 1] - blr[i + 1]) * amount);
+    d[i + 2] = _clamp(d[i + 2] + (d[i + 2] - blr[i + 2]) * amount);
+  }
+  ctx.putImageData(src, 0, 0);
   return c.toDataURL("image/png");
+}
+
+function _sCurve(v, strength = 0.25) {
+  const x = v / 255;
+  const y = 0.5 + (x - 0.5) * (1 + strength * (1 - 4 * (x - 0.5) * (x - 0.5)));
+  return _clamp(y * 255);
+}
+
+function _autoLevelsOnCanvas(c, cutoff = 0.005) {
+  const ctx = c.getContext("2d");
+  const w = c.width, h = c.height;
+  const data = ctx.getImageData(0, 0, w, h);
+  const d = data.data;
+  const n = d.length / 4;
+  const histR = new Uint32Array(256);
+  const histG = new Uint32Array(256);
+  const histB = new Uint32Array(256);
+  for (let i = 0; i < d.length; i += 4) { histR[d[i]]++; histG[d[i+1]]++; histB[d[i+2]]++; }
+  const pct = (hist, t) => { let s = 0; for (let v = 0; v < 256; v++) { s += hist[v]; if (s >= t) return v; } return 255; };
+  const lo = Math.floor(n * cutoff), hi = Math.floor(n * (1 - cutoff));
+  const rLo = pct(histR, lo), rHi = pct(histR, hi);
+  const gLo = pct(histG, lo), gHi = pct(histG, hi);
+  const bLo = pct(histB, lo), bHi = pct(histB, hi);
+  const str = (v, l, H) => H <= l ? v : _clamp((v - l) / (H - l) * 255);
+  for (let i = 0; i < d.length; i += 4) {
+    d[i]     = str(d[i], rLo, rHi);
+    d[i + 1] = str(d[i + 1], gLo, gHi);
+    d[i + 2] = str(d[i + 2], bLo, bHi);
+  }
+  ctx.putImageData(data, 0, 0);
+}
+
+// 1. HDR — shadow-lift + highlight-compress + local contrast + saturation
+async function _hdrEnhance(img) {
+  const { c, ctx } = _canvasFromImage(img);
+  const w = c.width, h = c.height;
+  _applyPixelOp(ctx, w, h, (r, g, b) => {
+    const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    if (L < 1) return [r, g, b];
+    // Reinhard-style tone mapping: compresses highlights, lifts shadows
+    const Ln = L / 255;
+    const Lm = (Ln * (1 + Ln / 0.7)) / (1 + Ln);
+    const gain = (Lm * 255) / L;
+    let nr = r * gain, ng = g * gain, nb = b * gain;
+    // Saturation boost 22%
+    const nL = 0.2126 * nr + 0.7152 * ng + 0.0722 * nb;
+    nr += (nr - nL) * 0.22;
+    ng += (ng - nL) * 0.22;
+    nb += (nb - nL) * 0.22;
+    return [_clamp(nr), _clamp(ng), _clamp(nb)];
+  });
+  // Local contrast via unsharp mask with large radius
+  return _unsharpMask(c, 6, 0.55);
+}
+
+// 2. Sharpen — strong unsharp mask
+async function _sharpenEnhance(img) {
+  const { c } = _canvasFromImage(img);
+  return _unsharpMask(c, 1.2, 1.3);
+}
+
+// 3. Denoise — gaussian blur + mild sharpen to keep edges
+async function _denoiseEnhance(img) {
+  const { c, ctx } = _canvasFromImage(img);
+  const w = c.width, h = c.height;
+  const blur = document.createElement("canvas");
+  blur.width = w; blur.height = h;
+  const bCtx = blur.getContext("2d");
+  bCtx.filter = "blur(1.2px)";
+  bCtx.drawImage(c, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(blur, 0, 0);
+  return _unsharpMask(c, 1.5, 0.5);
+}
+
+// 4. Upscale — 2x high-quality resample + sharpen
+async function _upscaleEnhance(img) {
+  const MAX_DIM = 6000;
+  let scale = 2;
+  if (img.width * 2 > MAX_DIM || img.height * 2 > MAX_DIM) {
+    scale = Math.min(MAX_DIM / img.width, MAX_DIM / img.height);
+  }
+  const w = Math.round(img.width * scale);
+  const h = Math.round(img.height * scale);
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  ctx.imageSmoothingQuality = "high";
+  ctx.imageSmoothingEnabled = true;
+  // Two-pass resample for better quality
+  const mid = document.createElement("canvas");
+  mid.width = Math.round(img.width * Math.sqrt(scale));
+  mid.height = Math.round(img.height * Math.sqrt(scale));
+  const mCtx = mid.getContext("2d");
+  mCtx.imageSmoothingQuality = "high";
+  mCtx.drawImage(img, 0, 0, mid.width, mid.height);
+  ctx.drawImage(mid, 0, 0, w, h);
+  return _unsharpMask(c, 1.2, 0.85);
+}
+
+// 5. Color Pop — vibrance + saturation + S-curve + mild sharpen
+async function _colorPopEnhance(img) {
+  const { c, ctx } = _canvasFromImage(img);
+  const w = c.width, h = c.height;
+  _applyPixelOp(ctx, w, h, (r, g, b) => {
+    const max = Math.max(r, g, b);
+    const min = Math.min(r, g, b);
+    const sat = max ? (max - min) / max : 0;
+    // Vibrance: boost more on less-saturated pixels
+    const vibBoost = 0.38 * (1 - sat);
+    const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    let nr = r + (r - L) * (0.18 + vibBoost);
+    let ng = g + (g - L) * (0.18 + vibBoost);
+    let nb = b + (b - L) * (0.18 + vibBoost);
+    // Cinematic S-curve contrast
+    nr = _sCurve(nr, 0.3);
+    ng = _sCurve(ng, 0.3);
+    nb = _sCurve(nb, 0.3);
+    // Slight warmth shift (add red, reduce blue) - cinematic teal-orange hint
+    nr = _clamp(nr + 4);
+    nb = _clamp(nb - 3);
+    return [_clamp(nr), _clamp(ng), _clamp(nb)];
+  });
+  return _unsharpMask(c, 1, 0.4);
+}
+
+// 6. Lowlight fix — gamma brighten + shadow lift + auto-levels
+async function _lowlightEnhance(img) {
+  const { c, ctx } = _canvasFromImage(img);
+  const w = c.width, h = c.height;
+  // Build gamma LUT (gamma < 1 => brighter)
+  const gamma = 0.55;
+  const lut = new Uint8Array(256);
+  for (let i = 0; i < 256; i++) lut[i] = _clamp(255 * Math.pow(i / 255, gamma));
+  _applyPixelOp(ctx, w, h, (r, g, b) => [lut[r], lut[g], lut[b]]);
+
+  // Slight denoise (low-light adds noise)
+  const blur = document.createElement("canvas");
+  blur.width = w; blur.height = h;
+  const bCtx = blur.getContext("2d");
+  bCtx.filter = "blur(0.8px)";
+  bCtx.drawImage(c, 0, 0);
+  ctx.drawImage(blur, 0, 0);
+
+  // Auto-levels to regain punch
+  _autoLevelsOnCanvas(c, 0.003);
+
+  // Saturation bump
+  _applyPixelOp(c.getContext("2d"), w, h, (r, g, b) => {
+    const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    return [
+      _clamp(r + (r - L) * 0.15),
+      _clamp(g + (g - L) * 0.15),
+      _clamp(b + (b - L) * 0.15),
+    ];
+  });
+  return _unsharpMask(c, 1.5, 0.5);
+}
+
+/**
+ * Unified client-side enhance dispatcher.
+ * Modes: auto | hdr | sharpen | denoise | upscale | color_pop | lowlight
+ * All run entirely on the canvas — no network, no API key, instant result.
+ */
+export async function clientEnhance(imageSrc, mode = "auto") {
+  if (mode === "auto") return magicEnhance(imageSrc);
+  const img = await loadImage(imageSrc);
+  switch (mode) {
+    case "hdr":       return _hdrEnhance(img);
+    case "sharpen":   return _sharpenEnhance(img);
+    case "denoise":   return _denoiseEnhance(img);
+    case "upscale":   return _upscaleEnhance(img);
+    case "color_pop": return _colorPopEnhance(img);
+    case "lowlight":  return _lowlightEnhance(img);
+    default:          return magicEnhance(imageSrc);
+  }
 }

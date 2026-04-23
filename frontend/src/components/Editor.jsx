@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import {
   DEFAULT_ADJUST, FILTER_PRESETS, buildFilterString, buildTransformString,
-  exportImage, saveImageAs, makeThumbnail, cropImage, CROP_RATIOS, applyMaskedBlur, magicEnhance,
+  exportImage, saveImageAs, makeThumbnail, cropImage, CROP_RATIOS, applyMaskedBlur, magicEnhance, clientEnhance,
 } from "@/lib/imageUtils";
 import { BRAND } from "@/lib/brand";
 import TextPanel, { SliderRow } from "@/components/editor/panels/TextPanel";
@@ -235,12 +235,26 @@ export default function Editor() {
     if (!image) return toast.error("Upload an image first");
     setAiLoading(true);
     try {
-      const { data } = await axios.post(`${API}/ai/enhance`, { image_base64: image, mode }, { timeout: 240000 });
-      setImage(`data:${data.mime_type};base64,${data.image_base64}`);
+      // Give the loader a chance to paint, then run heavy pixel work
+      await new Promise((r) => setTimeout(r, 30));
+      const result = await clientEnhance(image, mode);
+      setImage(result);
       setAdjust(DEFAULT_ADJUST);
-      toast.success(`Enhanced: ${mode}`);
+      setTransform(DEFAULT_TRANSFORM);
+      setSmoothness(0);
+      setTimeout(commitHistory, 0);
+      const labels = {
+        auto: "Auto-enhanced",
+        hdr: "HDR applied",
+        sharpen: "Sharpened",
+        denoise: "Denoised",
+        upscale: "Upscaled 2×",
+        color_pop: "Color pop applied",
+        lowlight: "Low-light fixed",
+      };
+      toast.success(labels[mode] || "Enhanced");
     } catch (e) {
-      toast.error(`Enhance failed: ${e.response?.data?.detail || e.message}`);
+      toast.error(`Enhance failed: ${e.message}`);
     } finally { setAiLoading(false); }
   };
 
@@ -766,9 +780,9 @@ export default function Editor() {
                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center flex-col gap-3 backdrop-blur-sm z-40">
                   <Loader2 className="w-10 h-10 text-garuda-gold animate-spin" />
                   <span className="text-sm uppercase tracking-[0.25em] text-garuda-gold font-mono">
-                    {magicLoading ? "Magic enhancing…" : "AI working…"}
+                    {magicLoading ? "Magic enhancing…" : "Processing…"}
                   </span>
-                  <span className="text-[11px] text-garuda-textTertiary">{magicLoading ? "Analyzing pixels · Instant" : "Retrying on failure • up to 60s"}</span>
+                  <span className="text-[11px] text-garuda-textTertiary">Analyzing pixels · runs on your device</span>
                 </div>
               )}
             </div>
