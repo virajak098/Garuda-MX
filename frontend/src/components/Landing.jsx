@@ -5,6 +5,7 @@ import {
   Eraser, ArrowUpRight, Layers,
 } from "lucide-react";
 import { BRAND } from "@/lib/brand";
+import ReviewsSection from "@/components/ReviewsSection";
 
 const features = [
   { icon: Sliders, title: "Precise Adjustments", desc: "Brightness, contrast, saturation, hue, blur — tuned in real time." },
@@ -29,6 +30,7 @@ export default function Landing() {
         </Link>
         <div className="flex items-center gap-6 text-sm text-garuda-textSecondary">
           <a href="#features" className="hover:text-white transition-colors hidden sm:block">Features</a>
+          <a href="#reviews" className="hover:text-white transition-colors hidden sm:block">Reviews</a>
           <Link
             to="/editor"
             data-testid="nav-launch-editor-link"
@@ -79,11 +81,11 @@ export default function Landing() {
             </a>
           </div>
 
-          <div className="mt-20 grid grid-cols-3 gap-6 md:gap-10 max-w-lg animate-fade-in-up" style={{ animationDelay: "0.5s" }}>
+          <div className="mt-20 grid grid-cols-3 gap-6 md:gap-10 max-w-xl animate-fade-in-up" style={{ animationDelay: "0.5s" }}>
             {[
               { k: "20+", v: "Pro Tools" },
-              { k: "AI", v: "Nano Banana" },
-              { k: "0ms", v: "Live Preview" },
+              { k: "AI", v: "Garuda MX" },
+              { k: "∞", v: "Free · No Watermark" },
             ].map((s) => (
               <div key={s.v} className="border-l border-garuda-gold pl-3">
                 <div className="font-heading text-2xl font-bold">{s.k}</div>
@@ -144,6 +146,9 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* Reviews */}
+      <ReviewsSection />
 
       {/* Footer */}
       <footer className="border-t border-garuda-border py-8 px-6 md:px-10 text-xs text-garuda-textTertiary flex items-center justify-between flex-wrap gap-2">

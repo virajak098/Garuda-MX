@@ -259,3 +259,101 @@ export const CROP_RATIOS = [
   { id: "4:3", label: "4:3 Classic", ratio: 4 / 3 },
   { id: "yt", label: "YouTube 1280×720", ratio: 1280 / 720 },
 ];
+
+/**
+ * Magic Enhance — instant client-side one-click enhancement.
+ * Applies:
+ *   1. Auto-levels (histogram stretch per channel, 1-99% percentile)
+ *   2. Contrast boost (S-curve)
+ *   3. Saturation boost (+15%)
+ *   4. Unsharp mask (sharpen via subtract blurred copy)
+ * Works great on dull / old / low-contrast / faded photos.
+ * Returns PNG dataURL.
+ */
+export async function magicEnhance(imageSrc) {
+  const img = await loadImage(imageSrc);
+  const w = img.width, h = img.height;
+
+  // Main canvas
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  const ctx = c.getContext("2d");
+  ctx.drawImage(img, 0, 0);
+
+  const imgData = ctx.getImageData(0, 0, w, h);
+  const d = imgData.data;
+  const n = d.length / 4;
+
+  // --- 1. Build histogram per channel and find 1%/99% percentiles ---
+  const histR = new Uint32Array(256);
+  const histG = new Uint32Array(256);
+  const histB = new Uint32Array(256);
+  for (let i = 0; i < d.length; i += 4) {
+    histR[d[i]]++; histG[d[i + 1]]++; histB[d[i + 2]]++;
+  }
+  const percentile = (hist, target) => {
+    let cum = 0;
+    for (let v = 0; v < 256; v++) {
+      cum += hist[v];
+      if (cum >= target) return v;
+    }
+    return 255;
+  };
+  const lowTarget = Math.floor(n * 0.005);
+  const highTarget = Math.floor(n * 0.995);
+  const rLo = percentile(histR, lowTarget), rHi = percentile(histR, highTarget);
+  const gLo = percentile(histG, lowTarget), gHi = percentile(histG, highTarget);
+  const bLo = percentile(histB, lowTarget), bHi = percentile(histB, highTarget);
+
+  const stretch = (v, lo, hi) => {
+    if (hi <= lo) return v;
+    const t = (v - lo) / (hi - lo);
+    return Math.max(0, Math.min(255, Math.round(t * 255)));
+  };
+
+  // S-curve for contrast: y = 0.5 + (x-0.5) * (1 + strength * (1 - 4*(x-0.5)^2))
+  const contrastStrength = 0.25;
+  const sCurve = (v) => {
+    const x = v / 255;
+    const y = 0.5 + (x - 0.5) * (1 + contrastStrength * (1 - 4 * (x - 0.5) * (x - 0.5)));
+    return Math.max(0, Math.min(255, Math.round(y * 255)));
+  };
+
+  // Saturation boost using HSL-like: mix toward luminance inverse
+  const satBoost = 0.18;
+
+  // --- 2. Apply per-pixel: auto-level → contrast → saturation ---
+  for (let i = 0; i < d.length; i += 4) {
+    let r = stretch(d[i], rLo, rHi);
+    let g = stretch(d[i + 1], gLo, gHi);
+    let b = stretch(d[i + 2], bLo, bHi);
+    r = sCurve(r); g = sCurve(g); b = sCurve(b);
+    // saturation: luminance
+    const L = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    r = Math.max(0, Math.min(255, Math.round(r + (r - L) * satBoost)));
+    g = Math.max(0, Math.min(255, Math.round(g + (g - L) * satBoost)));
+    b = Math.max(0, Math.min(255, Math.round(b + (b - L) * satBoost)));
+    d[i] = r; d[i + 1] = g; d[i + 2] = b;
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  // --- 3. Unsharp mask: blurred copy, then original*amount - blurred*(amount-1) ---
+  const blurred = document.createElement("canvas");
+  blurred.width = w; blurred.height = h;
+  const bCtx = blurred.getContext("2d");
+  bCtx.filter = "blur(2px)";
+  bCtx.drawImage(c, 0, 0);
+
+  const blurredData = bCtx.getImageData(0, 0, w, h).data;
+  const sharpenAmount = 0.6;
+  const out = ctx.getImageData(0, 0, w, h);
+  const sd = out.data;
+  for (let i = 0; i < sd.length; i += 4) {
+    sd[i]     = Math.max(0, Math.min(255, sd[i]     + (sd[i]     - blurredData[i])     * sharpenAmount));
+    sd[i + 1] = Math.max(0, Math.min(255, sd[i + 1] + (sd[i + 1] - blurredData[i + 1]) * sharpenAmount));
+    sd[i + 2] = Math.max(0, Math.min(255, sd[i + 2] + (sd[i + 2] - blurredData[i + 2]) * sharpenAmount));
+  }
+  ctx.putImageData(out, 0, 0);
+
+  return c.toDataURL("image/png");
+}

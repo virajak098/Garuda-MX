@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import {
   DEFAULT_ADJUST, FILTER_PRESETS, buildFilterString, buildTransformString,
-  exportImage, saveImageAs, makeThumbnail, cropImage, CROP_RATIOS, applyMaskedBlur,
+  exportImage, saveImageAs, makeThumbnail, cropImage, CROP_RATIOS, applyMaskedBlur, magicEnhance,
 } from "@/lib/imageUtils";
 import { BRAND } from "@/lib/brand";
 import TextPanel, { SliderRow } from "@/components/editor/panels/TextPanel";
@@ -242,6 +242,25 @@ export default function Editor() {
     } catch (e) {
       toast.error(`Enhance failed: ${e.response?.data?.detail || e.message}`);
     } finally { setAiLoading(false); }
+  };
+
+  const [magicLoading, setMagicLoading] = useState(false);
+  const runMagicEnhance = async () => {
+    if (!image) return toast.error("Upload an image first");
+    setMagicLoading(true);
+    try {
+      // small delay lets the loader paint
+      await new Promise((r) => setTimeout(r, 30));
+      const result = await magicEnhance(image);
+      setImage(result);
+      setAdjust(DEFAULT_ADJUST);
+      setTransform(DEFAULT_TRANSFORM);
+      setSmoothness(0);
+      toast.success("Magic enhance applied");
+      setTimeout(commitHistory, 0);
+    } catch (e) {
+      toast.error("Magic enhance failed");
+    } finally { setMagicLoading(false); }
   };
 
   const runFaceRetouch = async (feature, intensity, params) => {
@@ -743,11 +762,13 @@ export default function Editor() {
                   onDrawEnd={() => setHasMask(true)}
                 />
               )}
-              {aiLoading && (
+              {(aiLoading || magicLoading) && (
                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center flex-col gap-3 backdrop-blur-sm z-40">
                   <Loader2 className="w-10 h-10 text-garuda-gold animate-spin" />
-                  <span className="text-sm uppercase tracking-[0.25em] text-garuda-gold font-mono">AI working…</span>
-                  <span className="text-[11px] text-garuda-textTertiary">Retrying on failure • up to 60s</span>
+                  <span className="text-sm uppercase tracking-[0.25em] text-garuda-gold font-mono">
+                    {magicLoading ? "Magic enhancing…" : "AI working…"}
+                  </span>
+                  <span className="text-[11px] text-garuda-textTertiary">{magicLoading ? "Analyzing pixels · Instant" : "Retrying on failure • up to 60s"}</span>
                 </div>
               )}
             </div>
@@ -903,7 +924,7 @@ export default function Editor() {
               onAddImageLayer={addImageLayer}
             />
           )}
-          {activeTool === "enhance" && <EnhancePanel onEnhance={runEnhance} loading={aiLoading} />}
+          {activeTool === "enhance" && <EnhancePanel onEnhance={runEnhance} onMagicEnhance={runMagicEnhance} loading={aiLoading} magicLoading={magicLoading} />}
           {activeTool === "face" && <FaceRetouchPanel onRetouch={runFaceRetouch} loading={aiLoading} />}
           {activeTool === "erase" && (
             <MagicErasePanel

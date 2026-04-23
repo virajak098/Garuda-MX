@@ -89,6 +89,28 @@ class ProjectSummary(BaseModel):
     updated_at: datetime
 
 
+# ---------- Reviews ----------
+class ReviewCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=60)
+    rating: int = Field(..., ge=1, le=5)
+    text: str = Field(..., min_length=2, max_length=600)
+
+class Review(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    rating: int
+    text: str
+    approved: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class AdminLoginRequest(BaseModel):
+    password: str
+
+class AdminUpdateReview(BaseModel):
+    approved: Optional[bool] = None
+
+
 # ---------- Helpers ----------
 def _strip_data_url(b64: str) -> str:
     if b64.startswith("data:"):
@@ -454,6 +476,77 @@ async def delete_project(project_id: str):
     if res.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"ok": True, "deleted": project_id}
+
+
+# ---------- Reviews ----------
+def _require_admin(authorization: Optional[str]) -> None:
+    expected = os.environ.get("ADMIN_PASSWORD", "GarudaMX2026")
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Admin auth required")
+    token = authorization.split(" ", 1)[1].strip()
+    if token != expected:
+        raise HTTPException(status_code=403, detail="Invalid admin password")
+
+@api_router.post("/admin/login")
+async def admin_login(req: AdminLoginRequest):
+    expected = os.environ.get("ADMIN_PASSWORD", "GarudaMX2026")
+    if req.password != expected:
+        raise HTTPException(status_code=403, detail="Invalid password")
+    # Token = password itself (simple bearer) — fine for single-admin MVP
+    return {"ok": True, "token": expected}
+
+@api_router.post("/reviews", response_model=Review)
+async def create_review(input: ReviewCreate):
+    r = Review(**input.model_dump())
+    doc = r.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.reviews.insert_one(doc)
+    return r
+
+@api_router.get("/reviews", response_model=List[Review])
+async def list_public_reviews():
+    rows = await db.reviews.find({"approved": True}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    for r in rows:
+        if isinstance(r.get("created_at"), str):
+            r["created_at"] = datetime.fromisoformat(r["created_at"])
+    return rows
+
+from fastapi import Header
+
+@api_router.get("/admin/reviews", response_model=List[Review])
+async def list_all_reviews(authorization: Optional[str] = Header(None)):
+    _require_admin(authorization)
+    rows = await db.reviews.find({}, {"_id": 0}).sort("created_at", -1).to_list(500)
+    for r in rows:
+        if isinstance(r.get("created_at"), str):
+            r["created_at"] = datetime.fromisoformat(r["created_at"])
+    return rows
+
+@api_router.patch("/admin/reviews/{review_id}", response_model=Review)
+async def update_review(review_id: str, body: AdminUpdateReview, authorization: Optional[str] = Header(None)):
+    _require_admin(authorization)
+    update = {k: v for k, v in body.model_dump().items() if v is not None}
+    if not update:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    res = await db.reviews.find_one_and_update(
+        {"id": review_id},
+        {"$set": update},
+        return_document=True,
+        projection={"_id": 0},
+    )
+    if not res:
+        raise HTTPException(status_code=404, detail="Review not found")
+    if isinstance(res.get("created_at"), str):
+        res["created_at"] = datetime.fromisoformat(res["created_at"])
+    return res
+
+@api_router.delete("/admin/reviews/{review_id}")
+async def delete_review(review_id: str, authorization: Optional[str] = Header(None)):
+    _require_admin(authorization)
+    r = await db.reviews.delete_one({"id": review_id})
+    if r.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Review not found")
+    return {"ok": True, "deleted": review_id}
 
 
 app.include_router(api_router)
