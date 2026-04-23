@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Garuda MX — Premium Image Editor</title>
+<link rel="icon" type="image/jpeg" href="brand/logo.jpg" />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ============ LANDING ============ -->
+<div id="landing" class="screen active">
+  <nav class="nav">
+    <a class="brand-lockup" href="#" data-go="landing">
+      <img src="brand/logo.jpg" alt="Garuda" class="brand-logo" />
+      <img src="brand/text-logo.png" alt="GARUDA" class="brand-text" />
+      <span class="brand-tag">MX · v1.0</span>
+    </a>
+    <div class="nav-right">
+      <a href="#features" class="nav-link">Features</a>
+      <button class="btn btn-gold" data-go="editor">Launch Editor →</button>
+    </div>
+  </nav>
+
+  <section class="hero" style="background-image:linear-gradient(180deg,rgba(5,5,5,0.5),rgba(5,5,5,0.9)),url('brand/banner.png')">
+    <div class="hero-inner">
+      <div class="eyebrow">— IMAGE EDITOR · PREMIUM</div>
+      <h1>Edit with the<br /><span class="gold">eye of a Garuda.</span></h1>
+      <p class="lead">
+        Layered editing, precision crop with 8 handles, portrait-grade
+        background blur and native Save-As export. Browser-native, no installs.
+      </p>
+      <div class="cta-row">
+        <button class="btn btn-gold btn-lg" data-go="editor">Start Editing — Free ↗</button>
+        <a href="#features" class="btn-ghost">See every feature →</a>
+      </div>
+      <div class="stats">
+        <div class="stat"><b>20+</b><span>Pro Tools</span></div>
+        <div class="stat"><b>AI</b><span>Garuda MX</span></div>
+        <div class="stat"><b>∞</b><span>Free · No Watermark</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features" class="features">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow">TOOLKIT</div>
+        <h2>Every tool a serious editor reaches for.</h2>
+      </div>
+      <p class="muted">Hand-built for the browser. No plugins, no downloads. Open an image and get to work.</p>
+    </div>
+    <div class="feature-grid">
+      <div class="feature"><b>Precise Adjustments</b><span>Brightness, contrast, saturation, hue, blur — tuned in real time.</span></div>
+      <div class="feature"><b>Pro Enhancements</b><span>7-mode enhance suite: HDR, sharpen, denoise, upscale, lowlight, color pop.</span></div>
+      <div class="feature"><b>Precision Crop</b><span>Drag 8-handle box, lock aspect, export at any quality.</span></div>
+      <div class="feature"><b>Layered Editor</b><span>Stack images &amp; text layers. Reorder, hide, rename — pro style.</span></div>
+      <div class="feature"><b>Manual Blur Brush</b><span>Paint selective blur — privacy or portrait bokeh.</span></div>
+      <div class="feature"><b>Curated Filters</b><span>Vivid, Vintage, Noir, Sepia — color-graded presets.</span></div>
+      <div class="feature"><b>Transform</b><span>Rotate, flip horizontal/vertical with pixel precision.</span></div>
+      <div class="feature"><b>Export Anywhere</b><span>PNG, JPG, WebP. Save-As with custom filename.</span></div>
+    </div>
+  </section>
+
+  <section class="showcase">
+    <img src="brand/banner.png" alt="Banner" />
+    <div class="showcase-overlay">
+      <h3>Built for the moment the image needs to be <span class="gold">perfect.</span></h3>
+      <button class="btn btn-gold" data-go="editor">Try the Editor →</button>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="foot-left">
+      <img src="brand/logo.jpg" class="brand-logo-sm" />
+      <img src="brand/text-logo.png" class="brand-text-sm" />
+      <span>— pixel-precise editing in the browser.</span>
+    </div>
+    <div class="mono">© 2026</div>
+  </footer>
+</div>
+
+<!-- ============ EDITOR ============ -->
+<div id="editor" class="screen">
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <a class="brand-lockup" href="#" data-go="landing">
+        <img src="brand/logo.jpg" alt="Garuda" class="brand-logo" />
+        <img src="brand/text-logo.png" alt="GARUDA" class="brand-text" />
+        <span class="brand-tag hide-sm">MX</span>
+      </a>
+      <div class="sep"></div>
+      <input id="projectName" class="project-name" placeholder="Garuda MX" value="Untitled" />
+    </div>
+    <div class="topbar-right">
+      <button id="undoBtn" class="icon-btn" title="Undo">↶</button>
+      <button id="redoBtn" class="icon-btn" title="Redo">↷</button>
+      <div class="sep"></div>
+      <button id="compareBtn" class="icon-btn" title="Compare (hold)">◐</button>
+      <div class="sep"></div>
+      <button id="exportBtn" class="btn btn-gold btn-sm">⬇ Export</button>
+    </div>
+  </div>
+
+  <div class="editor-body">
+    <!-- Left tools -->
+    <aside class="tools">
+      <button class="tool" data-tool="upload" title="Upload" id="uploadToolBtn">⬆</button>
+      <div class="divider"></div>
+      <button class="tool active" data-tool="adjust" title="Adjust">⋮⋮</button>
+      <button class="tool" data-tool="filters" title="Filters">✦</button>
+      <button class="tool" data-tool="crop" title="Crop">⎘</button>
+      <button class="tool" data-tool="blur" title="Blur">◎</button>
+      <button class="tool" data-tool="transform" title="Transform">↻</button>
+      <button class="tool" data-tool="text" title="Text">T</button>
+      <button class="tool" data-tool="layers" title="Layers">❏</button>
+      <button class="tool" data-tool="enhance" title="Enhance">✧</button>
+      <div class="grow"></div>
+      <button class="tool danger" id="resetBtn" title="Reset">✕</button>
+    </aside>
+
+    <!-- Canvas -->
+    <main id="canvasArea" class="canvas-area">
+      <input type="file" id="fileInput" accept="image/*" hidden />
+      <div id="emptyState" class="empty-state">
+        <div class="empty-icon">⬆</div>
+        <h2>Drop an image to begin</h2>
+        <p>PNG, JPG or WebP. Or click below to choose.</p>
+        <button class="btn btn-gold" id="chooseImageBtn">Choose Image</button>
+      </div>
+      <div id="imageWrapper" class="image-wrapper hidden">
+        <img id="canvasImage" alt="editing" />
+        <div id="overlaysLayer" class="overlays-layer"></div>
+        <canvas id="blurMaskCanvas" class="mask-canvas hidden"></canvas>
+        <div id="cropOverlay" class="crop-overlay hidden">
+          <div class="crop-grid">
+            <div class="v1"></div><div class="v2"></div>
+            <div class="h1"></div><div class="h2"></div>
+          </div>
+          <div class="crop-label" id="cropLabel">80% × 80%</div>
+          <!-- 8 handles -->
+          <div class="handle corner" data-handle="nw"></div>
+          <div class="handle edge-h" data-handle="n"></div>
+          <div class="handle corner" data-handle="ne"></div>
+          <div class="handle edge-v" data-handle="e"></div>
+          <div class="handle corner" data-handle="se"></div>
+          <div class="handle edge-h" data-handle="s"></div>
+          <div class="handle corner" data-handle="sw"></div>
+          <div class="handle edge-v" data-handle="w"></div>
+        </div>
+      </div>
+      <div id="loadingOverlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <div class="loading-label">Processing…</div>
+        <div class="loading-sub">Analyzing pixels · runs on your device</div>
+      </div>
+
+      <div id="zoomBar" class="zoom-bar hidden">
+        <button id="zoomOut">−</button>
+        <input type="range" min="10" max="400" value="100" id="zoomSlider" />
+        <button id="zoomIn">+</button>
+        <button id="zoomReset" class="zoom-value">100%</button>
+      </div>
+    </main>
+
+    <!-- Right panel -->
+    <aside class="panel">
+      <div class="panel-head" id="panelTitle">ADJUST</div>
+      <div class="panel-body" id="panelBody"></div>
+      <div class="panel-footer">
+        <div class="panel-head">EXPORT</div>
+        <div class="fmt-row">
+          <button class="fmt-btn active" data-fmt="png">PNG</button>
+          <button class="fmt-btn" data-fmt="jpg">JPG</button>
+          <button class="fmt-btn" data-fmt="webp">WEBP</button>
+        </div>
+        <div id="qualityRow" class="quality-row hidden">
+          <div class="row-between"><span>Quality</span><span id="qualityVal" class="mono">92%</span></div>
+          <input type="range" min="10" max="100" value="92" id="qualitySlider" />
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toastContainer" class="toast-container"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
