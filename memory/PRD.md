@@ -55,3 +55,17 @@ User had a working image editor app called "Garuda MX" and asked to fix:
 ## Next tasks list
 - Validate AI tools with live Gemini key when user reports ready
 - Consider export presets (Instagram 1080, YouTube 1280×720) as one-click shortcuts
+
+## Iteration 2 — Feb 2026
+- New text-logo PNG (transparent wordmark) installed at `/brand/text-logo.png`, used in header alongside phoenix logo
+- Landing stats row updated: **20+ Pro Tools · AI Garuda MX · ∞ Free · No Watermark**
+- **Magic Enhance** — instant client-side one-click enhancement (`magicEnhance()` in imageUtils.js): auto-levels + S-curve contrast + saturation boost + unsharp mask sharpen. No AI key needed, <1s result.
+- **AI Deep Enhance** preserved (7 options: auto, hdr, sharpen, denoise, upscale, color_pop, lowlight) — now labelled "AI Garuda MX · Deep Enhance"
+- **Reviews system**: `POST /api/reviews` (public create), `GET /api/reviews` (public approved-only list), admin-only `GET/PATCH/DELETE /api/admin/reviews/*`
+- **Admin page** at `/admin` with password `GarudaMX2026` (stored in backend `.env` as `ADMIN_PASSWORD`). Pending + approved review management UI.
+- Reviews section added to Landing bottom with user form + public list + nav `#reviews` link
+
+## Verified (iteration 2)
+- Backend 100% (13/13 pytest tests) — review lifecycle, admin auth, role filtering
+- Frontend 100% — landing stats, Reviews form+submit, Admin login+approve+delete, Magic Enhance, Export download (PNG verified with correct filename)
+- Admin credentials saved: password = `GarudaMX2026` (also in `/app/memory/test_credentials.md` below)
